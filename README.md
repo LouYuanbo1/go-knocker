@@ -3,11 +3,11 @@
 [![Go Version](https://img.shields.io/badge/Go-1.27.0-blue.svg)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**go-knocker** 是一个用 Go 编写的高性能服务健康检查与告警工具。它支持对 HTTP 服务和 TCP 端口进行周期性健康检查，并在服务状态变化时通过多种渠道（飞书、钉钉、企业微信、Telegram、Slack、Discord、Teams、邮件、自定义 Webhook）实时推送告警通知。
+**go-knocker** 是一个用 Go 编写的服务健康检查与告警工具。它支持对 HTTP 服务和 TCP 端口进行周期性健康检查，并在服务状态变化时通过多种渠道（飞书、钉钉、企业微信、Telegram、Slack、Discord、Teams、邮件、自定义 Webhook）实时推送告警通知。
 
 ## 目录
 
-- [核心亮点](#核心亮点)
+- [项目核心](#项目核心)
 - [项目架构](#项目架构)
 - [状态机设计](#状态机设计)
 - [快速开始](#快速开始)
@@ -20,7 +20,7 @@
 
 ---
 
-## 核心亮点
+## 项目核心
 
 ### 1. 多类型健康检查
 
