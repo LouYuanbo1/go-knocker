@@ -381,7 +381,6 @@ go build -o go-knocker .
 [MySQL] 服务异常: tcp dial 10.0.0.2:3306: connection refused
 [MySQL] 重试 1/3 失败: tcp dial 10.0.0.2:3306: connection refused
 [MySQL] 重试 2/3 失败: tcp dial 10.0.0.2:3306: connection refused
-[MySQL] 重试 3/3 失败: tcp dial 10.0.0.2:3306: connection refused
 [MySQL] 服务已恢复
 ```
 
