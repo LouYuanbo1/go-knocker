@@ -1,0 +1,105 @@
+{
+    "interval_seconds": 30,
+    "alerters": [
+        {
+            "name": "飞书",
+            "type": "feishu",
+            "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/your-key"
+        },
+        {
+            "name": "钉钉",
+            "type": "dingtalk",
+            "webhook_url": "https://oapi.dingtalk.com/robot/send?access_token=your-token"
+        },
+        {
+            "name": "企业微信",
+            "type": "wecom",
+            "webhook_url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your-key"
+        },
+        {
+            "name": "Telegram",
+            "type": "telegram",
+            "webhook_url": "https://api.telegram.org/bot<TOKEN>/sendMessage"
+        },
+        {
+            "name": "Slack",
+            "type": "slack",
+            "webhook_url": "https://hooks.slack.com/services/your/webhook/url"
+        },
+        {
+            "name": "Discord",
+            "type": "discord",
+            "webhook_url": "https://discord.com/api/webhooks/your/webhook/url"
+        },
+        {
+            "name": "Teams",
+            "type": "teams",
+            "webhook_url": "https://your-tenant.webhook.office.com/webhookb2/..."
+        },
+        {
+            "name": "自定义Webhook",
+            "type": "webhook",
+            "webhook_url": "https://your-api.com/alert",
+            "body_template": "{\"message\":\"{{.Message}}\"}"
+        },
+        {
+            "name": "QQ邮箱",
+            "type": "email",
+            "smtp_host": "smtp.qq.com",
+            "smtp_port": "587",
+            "from": "your-account@qq.com",
+            "password": "your-auth-code",
+            "to": ["admin@qq.com"],
+            "subject": "Go Knocker 告警"
+        }
+    ],
+    "targets": [
+        {
+            "name": "API服务",
+            "type": "http",
+            "url": "http://10.0.0.1:8080/health",
+            "method": "GET",
+            "expected_status": 200
+        },
+        {
+            "name": "百度",
+            "type": "http",
+            "url": "https://www.baidu.com",
+            "method": "GET",
+            "expected_status": 200
+        },
+        {
+            "name": "MySQL",
+            "type": "tcp",
+            "address": "10.0.0.2:3306",
+            "timeout_seconds": 5
+        },
+        {
+            "name": "Redis",
+            "type": "tcp",
+            "address": "10.0.0.3:6379"
+        }
+    ],
+    "items": [
+        {
+            "target": "API服务",
+            "alerters": ["飞书", "QQ邮箱"],
+            "retry_count": 3,
+            "retry_seconds": 5
+        },
+        {
+            "target": "百度",
+            "alerters": []
+        },
+        {
+            "target": "MySQL",
+            "alerters": ["企业微信", "QQ邮箱"],
+            "retry_count": 3,
+            "retry_seconds": 5
+        },
+        {
+            "target": "Redis",
+            "alerters": ["钉钉"]
+        }
+    ]
+}
