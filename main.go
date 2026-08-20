@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"github.com/LouYuanbo1/go-knocker/config"
@@ -22,22 +22,33 @@ func main() {
 
 	var k *knocker.Knocker
 	var err error
-	if strings.HasSuffix(strings.ToLower(cfgPath), ".yaml") || strings.HasSuffix(strings.ToLower(cfgPath), ".yml") {
+
+	ext := filepath.Ext(cfgPath)
+	if ext == ".yml" || ext == ".yaml" {
 		k, err = config.LoadYAML(cfgPath, client)
 	} else {
 		k, err = config.Load(cfgPath, client)
 	}
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("load config failed: %v", err)
 	}
 
-	// 优雅退出
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+
 	go func() {
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Interrupt)
-		<-sig
+		<-sigChan
+		log.Println("receive interrupt signal, stopping knocker...")
 		k.Stop()
+
+		time.AfterFunc(3*time.Second, func() {
+			log.Println("stop timeout, force exit")
+			os.Exit(1)
+		})
+
+		signal.Stop(sigChan)
 	}()
 
 	k.Run()
+	log.Println("knocker exited")
 }

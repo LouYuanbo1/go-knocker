@@ -33,3 +33,4 @@ go.work.sum
 
 config/knocker.json
 config/knocker.yaml
+docker-compose.yaml

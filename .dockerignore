@@ -3,6 +3,7 @@
 *.md
 Dockerfile
 .dockerignore
-config/knocker.json
-config/knocker.yaml
+config/*.json
+config/*.yaml
 **/*_test.go
+docker-compose*.yaml
