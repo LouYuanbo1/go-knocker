@@ -1,0 +1,11 @@
+services:
+  go-knocker:
+    build: .
+    container_name: go-knocker
+    restart: unless-stopped
+    environment:
+      - CONFIG_PATH=/app/config/knocker.yaml
+      - TZ=Asia/Shanghai
+    volumes:
+      # 挂载配置文件(此处为示例)
+      - ./config/knocker.yaml:/app/config/knocker.yaml

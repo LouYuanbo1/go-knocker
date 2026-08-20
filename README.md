@@ -436,18 +436,16 @@ docker run -d \
 创建 `docker-compose.yml`：
 
 ```yaml
-version: "3.8"
-
 services:
   go-knocker:
-    image: go-knocker:latest
+    build: .
     container_name: go-knocker
     restart: unless-stopped
     environment:
       - CONFIG_PATH=/app/config/knocker.yaml
       - TZ=Asia/Shanghai
     volumes:
-      - ./config:/app/config
+      - ./config/knocker.yaml:/app/config/knocker.yaml
     # 如果使用 TCP 检查同一网络中的服务，可配置网络
     # networks:
     #   - monitor
