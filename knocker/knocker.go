@@ -10,8 +10,7 @@ type Knocker struct {
 	Items    []*Item
 	Interval time.Duration
 	done     chan struct{}
-	exited   chan struct{}
-	once     *sync.Once
+	once     sync.Once
 }
 
 func NewKnocker(items []*Item, interval time.Duration) *Knocker {
@@ -22,8 +21,6 @@ func NewKnocker(items []*Item, interval time.Duration) *Knocker {
 		Items:    items,
 		Interval: interval,
 		done:     make(chan struct{}),
-		exited:   make(chan struct{}),
-		once:     &sync.Once{},
 	}
 }
 
