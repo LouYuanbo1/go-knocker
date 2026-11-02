@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"log"
 	"net/http"
 	"os"
@@ -15,10 +16,7 @@ import (
 func main() {
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	cfgPath := os.Getenv("CONFIG_PATH")
-	if cfgPath == "" {
-		cfgPath = "config/knocker.json"
-	}
+	cfgPath := cmp.Or(os.Getenv("CONFIG_PATH"), "config/knocker.json")
 
 	var k *knocker.Knocker
 	var err error

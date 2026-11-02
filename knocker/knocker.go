@@ -10,13 +10,21 @@ type Knocker struct {
 	Items    []*Item
 	Interval time.Duration
 	done     chan struct{}
+	exited   chan struct{}
+	once     *sync.Once
 }
 
 func NewKnocker(items []*Item, interval time.Duration) *Knocker {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
-	return &Knocker{Items: items, Interval: interval, done: make(chan struct{})}
+	return &Knocker{
+		Items:    items,
+		Interval: interval,
+		done:     make(chan struct{}),
+		exited:   make(chan struct{}),
+		once:     &sync.Once{},
+	}
 }
 
 // RunOnce 对所有 Item 执行一次检查，状态变化时自动告警。
@@ -47,5 +55,7 @@ func (k *Knocker) Run() {
 
 // Stop 优雅停止 Run()，等待当前正在执行的检查完成后退出。
 func (k *Knocker) Stop() {
-	close(k.done)
+	k.once.Do(
+		func() { close(k.done) },
+	)
 }

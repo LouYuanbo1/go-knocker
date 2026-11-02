@@ -3,45 +3,58 @@ package knocker
 import (
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/LouYuanbo1/go-knocker/alerter"
 	"github.com/LouYuanbo1/go-knocker/target"
 )
 
-// Status 表示检查目标的状态。
-type Status int
-
-const (
-	StatusUnknown   Status = iota // 初始状态
-	StatusHealthy                 // 健康
-	StatusUnhealthy               // 不健康
-)
-
 // Item 包含一个检查目标及其关联的告警器。
 type Item struct {
 	Target     target.Target
 	Alerters   []alerter.Alerter
-	RetryCount int           // 失败后重试次数，默认 3
-	RetryDelay time.Duration // 重试间隔，默认 5s
-	status     Status
-	mu         sync.Mutex
+	RetryCount int                 // 失败后重试次数；0 表示不重试
+	RetryDelay time.Duration       // 重试间隔；零值表示每次重试立即执行
+	state      *HealthStateMachine // 状态机，保存当前状态并处理状态转移
 }
 
 func NewItem(target target.Target, alerters []alerter.Alerter, retryCount int, retryDelay time.Duration) *Item {
-	if retryCount <= 0 {
-		retryCount = 3
-	}
-	if retryDelay <= 0 {
-		retryDelay = 5 * time.Second
-	}
-	return &Item{
+	item := &Item{
 		Target:     target,
 		Alerters:   alerters,
 		RetryCount: retryCount,
 		RetryDelay: retryDelay,
+		state:      NewHealthStateMachine(),
 	}
+	item.registerTransitions()
+	return item
+}
+
+// registerTransitions 把"状态转移 -> 日志/告警"的响应逻辑内置到状态机。
+// 状态变更时由状态机自动触发对应的处理器，无需在 check 中编写冗长的 switch。
+func (item *Item) registerTransitions() {
+	item.state.
+		OnFirstHealthy(func(_, _ Status, _ error) {
+			log.Printf("[%s] 初始检查通过", item.Target.GetName())
+		}).
+		OnFirstUnhealthy(func(_, _ Status, err error) {
+			name := item.Target.GetName()
+			log.Printf("[%s] 初始检查失败: %v", name, err)
+			item.alert(fmt.Sprintf("[%s] 服务不可用: %v", name, err))
+		}).
+		OnStayHealthy(func(_, _ Status, _ error) {
+			log.Printf("[%s] 检查通过", item.Target.GetName())
+		}).
+		OnBecomeUnhealthy(func(_, _ Status, err error) {
+			name := item.Target.GetName()
+			log.Printf("[%s] 服务异常: %v", name, err)
+			item.alert(fmt.Sprintf("[%s] 服务异常: %v", name, err))
+		}).
+		OnRecover(func(_, _ Status, _ error) {
+			name := item.Target.GetName()
+			log.Printf("[%s] 服务已恢复", name)
+			item.alert(fmt.Sprintf("[%s] 服务已恢复", name))
+		})
 }
 
 // check 对单个 Item 执行检查并处理状态变化。
@@ -52,32 +65,8 @@ func (item *Item) check(done <-chan struct{}) {
 	if err != nil {
 		err = item.retry(done, err)
 	}
-
-	item.mu.Lock()
-	prevStatus := item.status
-	if err != nil {
-		item.status = StatusUnhealthy
-	} else {
-		item.status = StatusHealthy
-	}
-	currentStatus := item.status
-	item.mu.Unlock()
-
-	switch {
-	case prevStatus == StatusUnknown && currentStatus == StatusHealthy:
-		log.Printf("[%s] 初始检查通过", item.Target.GetName())
-	case prevStatus == StatusUnknown && currentStatus == StatusUnhealthy:
-		log.Printf("[%s] 初始检查失败: %v", item.Target.GetName(), err)
-		item.alert(fmt.Sprintf("[%s] 服务不可用: %v", item.Target.GetName(), err))
-	case prevStatus == StatusHealthy && currentStatus == StatusHealthy:
-		log.Printf("[%s] 检查通过", item.Target.GetName())
-	case prevStatus == StatusHealthy && currentStatus == StatusUnhealthy:
-		log.Printf("[%s] 服务异常: %v", item.Target.GetName(), err)
-		item.alert(fmt.Sprintf("[%s] 服务异常: %v", item.Target.GetName(), err))
-	case prevStatus == StatusUnhealthy && currentStatus == StatusHealthy:
-		log.Printf("[%s] 服务已恢复", item.Target.GetName())
-		item.alert(fmt.Sprintf("[%s] 服务已恢复", item.Target.GetName()))
-	}
+	// 状态判定与转移都由状态机内部完成，check 不感知具体状态枚举。
+	item.state.Checked(err)
 }
 
 // retry 按配置的重试次数和间隔重新检查，全部失败返回最后一次错误，任意成功返回 nil。

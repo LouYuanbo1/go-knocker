@@ -9,6 +9,7 @@
 
 - [核心亮点](#核心亮点)
 - [项目架构](#项目架构)
+- [核心对象关系](#核心对象关系)
 - [状态机设计](#状态机设计)
 - [快速开始](#快速开始)
 - [配置文件结构](#配置文件结构)
@@ -31,7 +32,7 @@
 
 ### 2. 多通道告警通知
 
-内置 **8 种办公平台 + 邮件 + 自定义 Webhook** 共 10 种告警通道：
+内置 **7 种办公平台 + 邮件 + 自定义 Webhook** 共 9 种告警通道：
 
 | 告警类型 | 配置值 | 说明 |
 |---------|-------|------|
@@ -69,7 +70,7 @@
 
 ### 6. 优雅退出
 
-捕获 `SIGINT` 信号，等待当前正在执行的检查完成后再退出，不会造成检查中断或数据丢失。
+捕获 `SIGINT` 信号后优雅停止调度：主动关闭状态机并**立即中断**正在进行的重试，避免网络等待阻塞退出。
 
 ### 7. 接口化设计，易于扩展
 
@@ -111,6 +112,38 @@
           └─────────────┘  │ templates.go  │  内置平台模板
                            └───────────────┘
 ```
+
+---
+
+## 核心对象关系
+
+`Knocker`、`Item`、`Target`、`Alerter` 四者构成检查与告警的核心对象模型，结构关系如下：
+
+```
+Knocker                                      // 调度器：按固定间隔定时触发全部检查
+└── Item (1..*)                              // 检查项：检查 + 重试 + 状态机 + 告警
+    ├── Target (1)                           //   决定"检查什么"
+    │   ├── HTTPTarget                       //   HTTP 健康检查
+    │   └── TCPTarget                        //   TCP 端口连通性
+    ├── Alerter (0..*)                       //   决定"通知给谁"
+    │   ├── WebhookAlerter                   //   飞书/钉钉/企微/Telegram/Slack/Discord/Teams/自定义
+    │   └── EmailAlerter                     //   SMTP 邮件
+    └── HealthStateMachine (1)               //   状态机：仅状态变化时触发告警
+```
+
+| 对象 | 所在包 | 职责 | 持有/关联 |
+|------|--------|------|-----------|
+| `Knocker` | `knocker` | 调度器：按固定间隔定时执行全部检查 | 持有 `[]*Item` 与全局 `Interval` |
+| `Item` | `knocker` | 检查项：封装一次检查的完整流程（检查 → 重试 → 状态转移 → 告警） | 关联 1 个 `Target`、`[]Alerter`、`RetryCount/RetryDelay`，并内置 `HealthStateMachine` |
+| `Target` | `target` | 检查目标接口：`Check()` 探测目标、`GetName()` 返回名称 | 接口，由 `HTTPTarget`/`TCPTarget` 实现 |
+| `Alerter` | `alerter` | 告警通道接口：`Alert(msg)` 发送通知、`GetName()` 返回名称 | 接口，由 `WebhookAlerter`/`EmailAlerter` 实现 |
+
+关系要点：
+
+- **1 个 `Knocker` 管理多个 `Item`**：调度器按 `Interval` 周期性并行触发所有 Item 的 `Check()`。
+- **1 个 `Item` 关联 1 个 `Target`**：`Target` 决定"检查什么"（HTTP 或 TCP）。
+- **1 个 `Item` 关联 0..N 个 `Alerter`**：`Alerter` 决定"通知到谁"，可为空数组。
+- **状态机驱动告警**：`Target.Check()` 的结果交由 `Item` 内置的 `HealthStateMachine` 判定状态；仅当状态**发生变化**时，`Item` 才调用关联 `Alerter.Alert()`，避免重复告警。
 
 ---
 
@@ -333,8 +366,8 @@ items:
 | `name` | string | 是 | - | 目标名称，在 `items` 中引用 |
 | `type` | string | 是 | - | 目标类型：`http` / `tcp` |
 | `url` | string | `http` 必填 | - | HTTP 请求 URL |
-| `method` | string | `http` 必填 | - | HTTP 请求方法（GET/POST/HEAD 等） |
-| `expected_status` | int | `http` 必填 | - | 期望的 HTTP 状态码 |
+| `method` | string | 否 | `GET` | HTTP 请求方法（GET/POST/HEAD 等） |
+| `expected_status` | int | 否 | `200` | 期望的 HTTP 状态码 |
 | `expected_response` | string | 否 | - | 期望的响应体内容（精确匹配） |
 | `address` | string | `tcp` 必填 | - | TCP 地址（host:port） |
 | `timeout_seconds` | int | 否 | 5 | TCP 连接超时（秒） |
@@ -343,10 +376,11 @@ items:
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
+| `name` | string | 否 | - | 检查项展示名，用于日志/告警标识；未配置时回退为目标名 |
 | `target` | string | 是 | - | 关联的目标名称 |
 | `alerters` | []string | 是 | - | 关联的告警器名称列表，可为空数组 `[]` |
-| `retry_count` | int | 否 | 3 | 失败后重试次数 |
-| `retry_seconds` | int | 否 | 5 | 重试间隔（秒） |
+| `retry_count` | int | 否 | 0（不重试） | 失败后重试次数 |
+| `retry_seconds` | int | 否 | 0（立即重试） | 重试间隔（秒） |
 
 ---
 
@@ -378,10 +412,10 @@ go build -o go-knocker .
 [API服务] 初始检查通过
 [MySQL] 初始检查通过
 [API服务] 检查通过
-[MySQL] 服务异常: tcp dial 10.0.0.2:3306: connection refused
 [MySQL] 重试 1/3 失败: tcp dial 10.0.0.2:3306: connection refused
 [MySQL] 重试 2/3 失败: tcp dial 10.0.0.2:3306: connection refused
 [MySQL] 重试 3/3 失败: tcp dial 10.0.0.2:3306: connection refused
+[MySQL] 服务异常: tcp dial 10.0.0.2:3306: connection refused
 [MySQL] 服务已恢复
 ```
 

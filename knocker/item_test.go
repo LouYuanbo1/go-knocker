@@ -32,15 +32,6 @@ func (m *mockAlerter) Alert(msg string) error {
 	return nil
 }
 
-func TestNewItem_Defaults(t *testing.T) {
-	target := &mockTarget{name: "test"}
-	item := NewItem(target, nil, 0, 0)
-	assert.Equal(t, target, item.Target)
-	assert.Equal(t, 3, item.RetryCount)
-	assert.Equal(t, 5*time.Second, item.RetryDelay)
-	assert.Nil(t, item.Alerters)
-}
-
 func TestNewItem_CustomRetry(t *testing.T) {
 	target := &mockTarget{name: "test"}
 	item := NewItem(target, nil, 5, 2*time.Second)
