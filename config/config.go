@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -49,7 +50,10 @@ type TargetConf struct {
 }
 
 // ItemConf 检查项配置，关联 Target 和 Alerter。
+// Name 为可选展示名；未配置时回退为目标名，用于告警/警告日志中标识本检查项，
+// 便于同一 target 被多个 item 复用时区分。
 type ItemConf struct {
+	Name         string   `json:"name,omitempty"         yaml:"name,omitempty"`
 	Target       string   `json:"target"       yaml:"target"`
 	Alerters     []string `json:"alerters"     yaml:"alerters"`
 	RetryCount   int      `json:"retry_count,omitempty"   yaml:"retry_count,omitempty"`
@@ -104,12 +108,12 @@ func (cfg *Config) Build(client *http.Client) (*knocker.Knocker, error) {
 		targetMap[tc.Name] = t
 	}
 
-	// 构建 Items
-	interval := time.Duration(cfg.IntervalSeconds) * time.Second
+	// 构建 Items：先归一化检查间隔的秒数，再统一转成 Duration，避免两套默认逻辑。
 	intervalSec := cfg.IntervalSeconds
 	if intervalSec <= 0 {
-		intervalSec = 30 // 与 NewKnocker 默认值一致
+		intervalSec = 30 // 与 knocker.NewKnocker 默认值一致
 	}
+	interval := time.Duration(intervalSec) * time.Second
 	items := make([]*knocker.Item, 0, len(cfg.Items))
 	for _, ic := range cfg.Items {
 		t, ok := targetMap[ic.Target]
@@ -120,7 +124,7 @@ func (cfg *Config) Build(client *http.Client) (*knocker.Knocker, error) {
 		for _, name := range ic.Alerters {
 			a, ok := alerterMap[name]
 			if !ok {
-				return nil, fmt.Errorf("item %q: alerter %q not found", ic.Target, name)
+				return nil, fmt.Errorf("item %q: alerter %q not found", itemName(ic, t), name)
 			}
 			alerters = append(alerters, a)
 		}
@@ -130,13 +134,21 @@ func (cfg *Config) Build(client *http.Client) (*knocker.Knocker, error) {
 		// 重试总耗时超过检查间隔时发出警告
 		if retryTotal := (item.RetryCount - 1) * int(item.RetryDelay.Seconds()); retryTotal >= intervalSec {
 			log.Printf("[WARN] item %q: (retry_count-1)(%d) × retry_delay(%ds) = %ds ≥ interval(%ds)，检查间隔将被拉长",
-				ic.Target, item.RetryCount-1, int(item.RetryDelay.Seconds()), retryTotal, intervalSec)
+				itemName(ic, t), item.RetryCount-1, int(item.RetryDelay.Seconds()), retryTotal, intervalSec)
 		}
 
 		items = append(items, item)
 	}
 
 	return knocker.NewKnocker(items, interval), nil
+}
+
+// itemName 返回 item 的展示名：优先用 ItemConf.Name，未配置时回退为目标名。
+func itemName(ic ItemConf, t target.Target) string {
+	if ic.Name != "" {
+		return ic.Name
+	}
+	return t.GetName()
 }
 
 // buildAlerter 根据配置构建告警器。
@@ -164,6 +176,18 @@ func buildAlerter(ac AlerterConf, client *http.Client) (alerter.Alerter, error) 
 	}
 }
 
+// targetClient 供 HTTP 目标使用：未配置 timeout 时直接复用共享 client（保持连接池共享）；
+// 配置了按目标的 timeout 秒数时，克隆共享 client 并设置超时，返回独立 client。
+func targetClient(shared *http.Client, timeoutSeconds int) *http.Client {
+	if timeoutSeconds <= 0 {
+		return shared
+	}
+	shared = cmp.Or(shared, http.DefaultClient)
+	clone := *shared
+	clone.Timeout = time.Duration(timeoutSeconds) * time.Second
+	return &clone
+}
+
 // buildTarget 根据配置构建检查目标。
 func buildTarget(tc TargetConf, client *http.Client) (target.Target, error) {
 	switch tc.Type {
@@ -173,7 +197,7 @@ func buildTarget(tc TargetConf, client *http.Client) (target.Target, error) {
 			opts = append(opts, target.WithExpectedResponse(*tc.ExpectedResponse))
 		}
 		return target.NewHTTPTarget(
-			client, tc.Name, tc.URL, tc.Method, tc.ExpectedStatus, opts...,
+			targetClient(client, tc.TimeoutSeconds), tc.Name, tc.URL, tc.Method, tc.ExpectedStatus, opts...,
 		), nil
 	case "tcp":
 		var opts []target.TCPOption

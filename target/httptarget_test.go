@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,9 +26,8 @@ func TestNewHTTPTarget_CustomClient(t *testing.T) {
 }
 
 func TestWithBody(t *testing.T) {
-	body := strings.NewReader("hello")
-	target := NewHTTPTarget(http.DefaultClient, "test", "http://example.com", "POST", 201, WithBody(body))
-	assert.Same(t, body, target.Body)
+	target := NewHTTPTarget(http.DefaultClient, "test", "http://example.com", "POST", 201, WithBody("hello"))
+	assert.Equal(t, "hello", target.Body)
 }
 
 func TestWithContentType(t *testing.T) {
@@ -115,9 +113,8 @@ func TestHTTPTarget_Check_POSTWithBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	body := strings.NewReader(`{"key":"value"}`)
 	target := NewHTTPTarget(server.Client(), "test", server.URL, "POST", 201,
-		WithBody(body),
+		WithBody(`{"key":"value"}`),
 		WithContentType("application/json"),
 	)
 	err := target.Check()

@@ -6,8 +6,8 @@ import "net/http"
 //
 // 使用方式：
 //
-//	a := alerter.NewWebhookAlerter(client, url, alerter.FeishuText)
-//	a := alerter.NewFeishuAlerter(client, url)  // 快捷方式
+//	a := alerter.NewWebhookAlerter("飞书", client, url, alerter.FeishuText)
+//	a := alerter.NewFeishuAlerter("飞书", client, url)  // 快捷方式
 const (
 	// FeishuText 飞书/Lark 文本消息。
 	// 文档：https://open.feishu.cn/document/ukTMukTMukTM/ucTM5YjL3ETO24yNxkjN

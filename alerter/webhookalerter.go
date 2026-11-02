@@ -2,6 +2,7 @@ package alerter
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -32,9 +33,7 @@ type WebhookOption func(*WebhookAlerter)
 
 // NewWebhookAlerter 创建 Webhook 告警器，必要参数为 name、url、bodyTemplate。
 func NewWebhookAlerter(name string, client *http.Client, url, bodyTemplate string, opts ...WebhookOption) *WebhookAlerter {
-	if client == nil {
-		client = http.DefaultClient
-	}
+	client = cmp.Or(client, http.DefaultClient)
 
 	a := &WebhookAlerter{
 		Name:         name,
