@@ -50,10 +50,7 @@ type TargetConf struct {
 }
 
 // ItemConf 检查项配置，关联 Target 和 Alerter。
-// Name 为可选展示名；未配置时回退为目标名，用于告警/警告日志中标识本检查项，
-// 便于同一 target 被多个 item 复用时区分。
 type ItemConf struct {
-	Name         string   `json:"name,omitempty"         yaml:"name,omitempty"`
 	Target       string   `json:"target"       yaml:"target"`
 	Alerters     []string `json:"alerters"     yaml:"alerters"`
 	RetryCount   int      `json:"retry_count,omitempty"   yaml:"retry_count,omitempty"`
@@ -124,7 +121,7 @@ func (cfg *Config) Build(client *http.Client) (*knocker.Knocker, error) {
 		for _, name := range ic.Alerters {
 			a, ok := alerterMap[name]
 			if !ok {
-				return nil, fmt.Errorf("item %q: alerter %q not found", itemName(ic, t), name)
+				return nil, fmt.Errorf("item %q: alerter %q not found", t.GetName(), name)
 			}
 			alerters = append(alerters, a)
 		}
@@ -134,21 +131,13 @@ func (cfg *Config) Build(client *http.Client) (*knocker.Knocker, error) {
 		// 重试总耗时超过检查间隔时发出警告
 		if retryTotal := (item.RetryCount - 1) * int(item.RetryDelay.Seconds()); retryTotal >= intervalSec {
 			log.Printf("[WARN] item %q: (retry_count-1)(%d) × retry_delay(%ds) = %ds ≥ interval(%ds)，检查间隔将被拉长",
-				itemName(ic, t), item.RetryCount-1, int(item.RetryDelay.Seconds()), retryTotal, intervalSec)
+				t.GetName(), item.RetryCount-1, int(item.RetryDelay.Seconds()), retryTotal, intervalSec)
 		}
 
 		items = append(items, item)
 	}
 
 	return knocker.NewKnocker(items, interval), nil
-}
-
-// itemName 返回 item 的展示名：优先用 ItemConf.Name，未配置时回退为目标名。
-func itemName(ic ItemConf, t target.Target) string {
-	if ic.Name != "" {
-		return ic.Name
-	}
-	return t.GetName()
 }
 
 // buildAlerter 根据配置构建告警器。
@@ -168,7 +157,7 @@ func buildAlerter(ac AlerterConf, client *http.Client) (alerter.Alerter, error) 
 		}
 		return alerter.NewWebhookAlerter(ac.Name, client, ac.WebhookURL, ac.BodyTemplate), nil
 	default:
-		tmpl, ok := platformTemplates[ac.Type]
+		tmpl, ok := alerter.PlatformTemplates[ac.Type]
 		if !ok {
 			return nil, fmt.Errorf("unsupported alerter type: %s", ac.Type)
 		}
@@ -208,15 +197,4 @@ func buildTarget(tc TargetConf, client *http.Client) (target.Target, error) {
 	default:
 		return nil, fmt.Errorf("unsupported target type: %s", tc.Type)
 	}
-}
-
-// platformTemplates 内置平台 → 模板映射。
-var platformTemplates = map[string]string{
-	"feishu":   alerter.FeishuText,
-	"dingtalk": alerter.DingTalkText,
-	"wecom":    alerter.WeComText,
-	"telegram": alerter.TelegramText,
-	"slack":    alerter.SlackText,
-	"discord":  alerter.DiscordText,
-	"teams":    alerter.TeamsText,
 }
