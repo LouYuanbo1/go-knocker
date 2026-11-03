@@ -37,8 +37,7 @@ func TestWithContentType(t *testing.T) {
 
 func TestWithExpectedResponse(t *testing.T) {
 	target := NewHTTPTarget(http.DefaultClient, "test", "http://example.com", "GET", 200, WithExpectedResponse("ok"))
-	assert.NotNil(t, target.ExpectedResponse)
-	assert.Equal(t, "ok", *target.ExpectedResponse)
+	assert.Equal(t, "ok", target.ExpectedResponse)
 }
 
 func TestHTTPTarget_GetName(t *testing.T) {
@@ -133,7 +132,7 @@ func TestHTTPTarget_MultipleOptions(t *testing.T) {
 		WithContentType("text/plain"),
 	)
 	assert.Equal(t, "text/plain", target.ContentType)
-	assert.Equal(t, "pong", *target.ExpectedResponse)
+	assert.Equal(t, "pong", target.ExpectedResponse)
 	err := target.Check()
 	assert.NoError(t, err)
 }

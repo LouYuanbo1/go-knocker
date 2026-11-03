@@ -39,14 +39,16 @@ type AlerterConf struct {
 
 // TargetConf 检查目标配置。
 type TargetConf struct {
-	Name             string  `json:"name"              yaml:"name"`
-	Type             string  `json:"type"              yaml:"type"`
-	URL              string  `json:"url,omitempty"              yaml:"url,omitempty"`
-	Method           string  `json:"method,omitempty"           yaml:"method,omitempty"`
-	ExpectedStatus   int     `json:"expected_status,omitempty"   yaml:"expected_status,omitempty"`
-	ExpectedResponse *string `json:"expected_response,omitempty" yaml:"expected_response,omitempty"`
-	Address          string  `json:"address,omitempty"          yaml:"address,omitempty"`
-	TimeoutSeconds   int     `json:"timeout_seconds,omitempty"   yaml:"timeout_seconds,omitempty"`
+	Name             string `json:"name"              yaml:"name"`
+	Type             string `json:"type"              yaml:"type"`
+	URL              string `json:"url,omitempty"              yaml:"url,omitempty"`
+	Method           string `json:"method,omitempty"           yaml:"method,omitempty"`
+	Body             string `json:"body,omitempty"             yaml:"body,omitempty"`
+	ContentType      string `json:"content_type,omitempty"     yaml:"content_type,omitempty"`
+	ExpectedStatus   int    `json:"expected_status,omitempty"   yaml:"expected_status,omitempty"`
+	ExpectedResponse string `json:"expected_response,omitempty" yaml:"expected_response,omitempty"`
+	Address          string `json:"address,omitempty"          yaml:"address,omitempty"`
+	TimeoutSeconds   int    `json:"timeout_seconds,omitempty"   yaml:"timeout_seconds,omitempty"`
 }
 
 // ItemConf 检查项配置，关联 Target 和 Alerter。
@@ -182,8 +184,14 @@ func buildTarget(tc TargetConf, client *http.Client) (target.Target, error) {
 	switch tc.Type {
 	case "http":
 		var opts []target.HTTPOption
-		if tc.ExpectedResponse != nil {
-			opts = append(opts, target.WithExpectedResponse(*tc.ExpectedResponse))
+		if tc.Body != "" {
+			opts = append(opts, target.WithBody(tc.Body))
+		}
+		if tc.ContentType != "" {
+			opts = append(opts, target.WithContentType(tc.ContentType))
+		}
+		if tc.ExpectedResponse != "" {
+			opts = append(opts, target.WithExpectedResponse(tc.ExpectedResponse))
 		}
 		return target.NewHTTPTarget(
 			targetClient(client, tc.TimeoutSeconds), tc.Name, tc.URL, tc.Method, tc.ExpectedStatus, opts...,
