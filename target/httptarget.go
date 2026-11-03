@@ -17,7 +17,7 @@ type HTTPTarget struct {
 	Body             string
 	ContentType      string
 	ExpectedStatus   int
-	ExpectedResponse *string
+	ExpectedResponse string
 }
 
 // HTTPOption 用于配置 HTTPTarget。
@@ -53,7 +53,7 @@ func WithContentType(ct string) HTTPOption {
 }
 
 func WithExpectedResponse(expected string) HTTPOption {
-	return func(t *HTTPTarget) { t.ExpectedResponse = &expected }
+	return func(t *HTTPTarget) { t.ExpectedResponse = expected }
 }
 
 func (t *HTTPTarget) GetName() string {
@@ -83,13 +83,13 @@ func (t *HTTPTarget) Check() error {
 	if resp.StatusCode != t.ExpectedStatus {
 		return fmt.Errorf("unexpected status code: expected %d, got %d", t.ExpectedStatus, resp.StatusCode)
 	}
-	if t.ExpectedResponse != nil {
+	if t.ExpectedResponse != "" {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
-		if string(bodyBytes) != *t.ExpectedResponse {
-			return fmt.Errorf("unexpected response body: expected %d bytes, got %d bytes", len(*t.ExpectedResponse), len(bodyBytes))
+		if string(bodyBytes) != t.ExpectedResponse {
+			return fmt.Errorf("unexpected response body: expected %d bytes, got %d bytes", len(t.ExpectedResponse), len(bodyBytes))
 		}
 	}
 	return nil

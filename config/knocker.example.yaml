@@ -54,6 +54,14 @@ targets:
     method: GET
     expected_status: 200
 
+  - name: 用户服务
+    type: http
+    url: http://10.0.0.5:8080/api/users
+    method: POST
+    content_type: application/json
+    body: '{"page":1}'
+    expected_status: 200
+
   - name: 百度
     type: http
     url: https://www.baidu.com

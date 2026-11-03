@@ -202,7 +202,6 @@ func TestBuild_TCPTarget(t *testing.T) {
 }
 
 func TestBuild_HTTPTargetWithExpectedResponse(t *testing.T) {
-	resp := "ok"
 	cfg := &Config{
 		Alerters: []AlerterConf{
 			{Name: "test", Type: "feishu", WebhookURL: "http://example.com"},
@@ -214,7 +213,7 @@ func TestBuild_HTTPTargetWithExpectedResponse(t *testing.T) {
 				URL:              "http://example.com/health",
 				Method:           "GET",
 				ExpectedStatus:   200,
-				ExpectedResponse: &resp,
+				ExpectedResponse: "ok",
 			},
 		},
 		Items: []ItemConf{
