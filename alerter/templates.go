@@ -39,6 +39,18 @@ const (
 	TeamsText = `{"text":"{{.Message}}"}`
 )
 
+// PlatformTemplates 按平台类型名映射到对应模板。
+// 供快捷构造函数与配置文件构建共用，避免在不同包中重复维护这份映射。
+var PlatformTemplates = map[string]string{
+	"feishu":   FeishuText,
+	"dingtalk": DingTalkText,
+	"wecom":    WeComText,
+	"telegram": TelegramText,
+	"slack":    SlackText,
+	"discord":  DiscordText,
+	"teams":    TeamsText,
+}
+
 // ==================== 快捷构造函数 ====================
 
 // NewFeishuAlerter 创建飞书/Lark 文本消息告警器。
